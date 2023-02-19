@@ -1,16 +1,16 @@
 /**
- * Program do kompresji drzewa binarnego do skierowanego,
- * acyklicznego grafu i dekompresji takiego grafu do pierwotnego drzewa.
+ * Program to compress a binary tree into a directed acyclic
+ * graph (DAG) and to decompress.
  *
  * Program:
- * - Wywołany z argumentem "c" czyta z wejścia reprezentację drzewa i pisze na
- * wyjście reprezentację grafu będącego wynikiem kompresji tego drzewa.
- * - Wywołany z argumentem d czyta z wejścia reprezentację grafu będącego
- * wynikiem kompresji drzewa i pisze na wyjście reprezentację drzewa,
- * z kompresji którego ten graf powstał.
+ *  - When called with the "c" argument, reads the tree representation
+ * from input and writes the compressed graph representation to output.
+ *  - When called with the "d" argument, reads the compressed graph
+ * representation from input and writes the tree representation that
+ * the graph was compressed from to output.
  *
- * autor: Belgutei Tsevegmed
- * data: 24 stycznia 2023 r.
+ * author: Belgutei Tsevegmed
+ * date: January 24, 2023
  */
 
 #include <stdbool.h>
@@ -19,207 +19,210 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Struktury danych */
-typedef struct drzewo {
+/* Data Structures */
+typedef struct tree {
   int val;
-  struct drzewo *lsyn;
-  struct drzewo *psyn;
-} drzewo;
+  struct tree *left;
+  struct tree *right;
+} tree;
 
-/* Korzystam z tablicy, by zapamietywac elementy drzewa. Bedzie to tablica
- * wskaznikow do elementow drzewa. */
-drzewo **tablica = NULL;
+/**
+ * Using an array to store the elements of the tree.
+ * This will be an array of pointers to tree elements.
+ */
+tree **array = NULL;
 int count = 0;
 
 /**
- * Funkcja do czytania drzewa
+ * Function to read a tree
  */
-drzewo *czytaj_drzewo() {
+tree *read_tree() {
   int val;
   scanf("%d", &val);
   if (val == 0)
     return NULL;
-  drzewo *korzen = (drzewo *)malloc(sizeof(drzewo));
-  korzen->val = val;
-  korzen->lsyn = czytaj_drzewo();
-  korzen->psyn = czytaj_drzewo();
-  return korzen;
+  tree *root = (tree *)malloc(sizeof(tree));
+  root->val = val;
+  root->left = read_tree();
+  root->right = read_tree();
+  return root;
 }
 
 /**
- * Funkcja do czytania grafu
+ * Function to read a directed, acyclic graph
  */
-drzewo *czytaj_dag() {
+tree *read_dag() {
   int val;
   scanf("%d", &val);
   if (val == 0)
     return NULL;
-  drzewo *korzen = (drzewo *)malloc(sizeof(drzewo));
-  korzen->val = val;
+  tree *root = (tree *)malloc(sizeof(tree));
+  root->val = val;
   if (val < 0) {
-    korzen->lsyn = NULL;
-    korzen->psyn = NULL;
+    root->left = NULL;
+    root->right = NULL;
   } else {
-    korzen->lsyn = czytaj_dag();
-    korzen->psyn = czytaj_dag();
+    root->left = read_dag();
+    root->right = read_dag();
   }
-  return korzen;
+  return root;
 }
 
 /**
- * Funkcja do drukowania drzewa
+ * Function to print a tree
  */
-void drukuj_drzewo(drzewo *korzen) {
-  if (korzen == NULL) {
+void print_tree(tree *root) {
+  if (root == NULL) {
     printf("0\n");
     return;
   }
-  printf("%d\n", korzen->val);
-  drukuj_drzewo(korzen->lsyn);
-  drukuj_drzewo(korzen->psyn);
+  printf("%d\n", root->val);
+  print_tree(root->left);
+  print_tree(root->right);
 }
 
 /**
- * Funkcja do drukowania grafu
+ * Function to print a directed, acyclic graph
  */
-void drukuj_dag(drzewo *korzen) {
-  if (korzen == NULL) {
+void print_dag(tree *root) {
+  if (root == NULL) {
     printf("0\n");
     return;
   }
-  printf("%d\n", korzen->val);
-  if (korzen->val > 0) {
-    drukuj_dag(korzen->lsyn);
-    drukuj_dag(korzen->psyn);
+  printf("%d\n", root->val);
+  if (root->val > 0) {
+    print_dag(root->left);
+    print_dag(root->right);
   }
 }
 
 /**
- * Funkcja pomocnicza dla funkcji kompresji,
- * słuzy do sprawdzania czy dwa drzewa sa izomorficzne.
+ * Helper function for the compression function.
+ * Determines if two trees are isomorphic.
  */
-bool izo(drzewo *d1, drzewo *d2) {
+bool iso(tree *d1, tree *d2) {
   if (d1 == d2) {
     return true;
   } else if (d1 == NULL || d2 == NULL) {
     return false;
   } else {
-    return (d1->val == d2->val && izo(d1->lsyn, d2->lsyn) &&
-            izo(d1->psyn, d2->psyn));
+    return (d1->val == d2->val && iso(d1->left, d2->left) &&
+            iso(d1->right, d2->right));
   }
 }
 
 /**
- * Funkcja do kompresji drzewa
+ * Function to compress a tree
  */
-drzewo *kompresja(drzewo *korzen) {
-  if (korzen == NULL)
+tree *compression(tree *root) {
+  if (root == NULL)
     return NULL;
-  drzewo *dag_korzen = NULL;
-  int indeks = -1;
-  /* Sprawdza czy drzewo aktualne nie występuje juz w tablicy drzew */
+  tree *dag_root = NULL;
+  int index = -1;
+  /* Checks if the current tree isn't already in the tree array */
   for (int i = 0; i < count; i++) {
-    if (izo(korzen, tablica[i])) {
-      indeks = i;
+    if (iso(root, array[i])) {
+      index = i;
       break;
     }
   }
-  /* Jesli aktualne drzewo nie wystepuje w tablicy, to tworzę nowe drzewo */
-  if (indeks == -1) {
-    dag_korzen = (drzewo *)malloc(sizeof(drzewo));
-    dag_korzen->val = korzen->val;
-    /* Zwieksza rozmiar tablicy i dodaje nowe drzewo */
-    tablica =
-        (drzewo **)realloc(tablica, sizeof(drzewo *) * (size_t)(count + 1));
-    tablica[count++] = korzen;
-    dag_korzen->lsyn = kompresja(korzen->lsyn);
-    dag_korzen->psyn = kompresja(korzen->psyn);
+  /* If the current tree isn't already in the tree array,
+   * it makes a new tree */
+  if (index == -1) {
+    dag_root = (tree *)malloc(sizeof(tree));
+    dag_root->val = root->val;
+    /* Increases the size of the array and adds a new tree */
+    array =
+        (tree **)realloc(array, sizeof(tree *) * (size_t)(count + 1));
+    array[count++] = root;
+    dag_root->left = compression(root->left);
+    dag_root->right = compression(root->right);
   } else {
-    /* Jeśli drzewo wystepuje w tablicy, to dodaje nowe drzewo z val
-     * rownym -(indeks+1), indeks to indeks w tablicy */
-    dag_korzen = (drzewo *)malloc(sizeof(drzewo));
-    dag_korzen->val = -(indeks + 1);
-    dag_korzen->lsyn = NULL;
-    dag_korzen->psyn = NULL;
+    /* If tree is already in the array, it adds a new tree with value
+     * equal to -(index+1), index is the index in the array */
+    dag_root = (tree *)malloc(sizeof(tree));
+    dag_root->val = -(index + 1);
+    dag_root->left = NULL;
+    dag_root->right = NULL;
   }
-  return dag_korzen;
+  return dag_root;
 }
 
 /**
- * Funkcja pomocnicza dla funkcji dekompresji.
+ * Helper function for the decompression function.
  *
- * Jeśli w grafie wystepuje ujemna wartosc, to funkcja ta uzupelnia to miejsce
- * kopiujac do tego miejsca odpowiednie elementy oryginalnego drzewa.
+ * If a negative value is encountered in the graph, this function fills the 
+ * corresponding node by copying the appropriate elements from the original tree.
  */
-drzewo *uzupelnij_miejsce(drzewo *oryg_korzen) {
-  if (oryg_korzen == NULL) {
+tree *fill_a_place(tree *orig_root) {
+  if (orig_root == NULL) {
     return NULL;
   }
-  drzewo *nowy = malloc(sizeof(drzewo));
-  nowy->val = oryg_korzen->val;
-  nowy->lsyn = uzupelnij_miejsce(oryg_korzen->lsyn);
-  nowy->psyn = uzupelnij_miejsce(oryg_korzen->psyn);
-  return nowy;
+  tree *new = malloc(sizeof(tree));
+  new->val = orig_root->val;
+  new->left = fill_a_place(orig_root->left);
+  new->right = fill_a_place(orig_root->right);
+  return new;
 }
 
 /**
- * Funkcja do dekompresji grafu
+ * Function for decompressing the graph
  *
- * Funkcja ta zapamietuje elementy, w ktorych juz była w tablicy, a gdy
- * napotka ujemna wartosc, wyszukuje w tablicy odpowiedniego elementu
- * i kopiuje w to miejsce.
+ * This function remembers the elements it has already encountered in the 
+ * array, and when it encounters a negative value, it searches the array for 
+ * the corresponding element and copies it to that location.
  */
-drzewo *dekompresja(drzewo *korzen, drzewo *oryg_korzen) {
-  if (korzen == NULL)
+tree *decompression(tree *root, tree *orig_root) {
+  if (root == NULL)
     return NULL;
-  if (korzen->val < 0) {
-    return uzupelnij_miejsce(tablica[-(korzen->val) - 1]);
+  if (root->val < 0) {
+    return fill_a_place(array[-(root->val) - 1]);
   } else {
-    drzewo *drzewo_korzen = (drzewo *)malloc(sizeof(drzewo));
-    drzewo_korzen->val = korzen->val;
-    /* Zwieksza rozmiar tablicy i dodaje nowe drzewo */
-    tablica =
-        (drzewo **)realloc(tablica, sizeof(drzewo *) * (size_t)(count + 1));
-    tablica[count++] = drzewo_korzen;
-    drzewo_korzen->lsyn = dekompresja(korzen->lsyn, oryg_korzen);
-    drzewo_korzen->psyn = dekompresja(korzen->psyn, oryg_korzen);
-    return drzewo_korzen;
+    tree *tree_root = (tree *)malloc(sizeof(tree));
+    tree_root->val = root->val;
+    /* Increases the size of the array and adds a new tree */
+    array =
+        (tree **)realloc(array, sizeof(tree *) * (size_t)(count + 1));
+    array[count++] = tree_root;
+    tree_root->left = decompression(root->left, orig_root);
+    tree_root->right = decompression(root->right, orig_root);
+    return tree_root;
   }
 }
 
 /**
- * Zwalnia pamiec zajęta przez drzewo lub graf
+ * Frees the memory occupied by a tree or graph
  */
-void zwolnij_pamiec(drzewo *root) {
+void free_memory(tree *root) {
   if (root == NULL) {
     return;
   }
-  zwolnij_pamiec(root->lsyn);
-  zwolnij_pamiec(root->psyn);
+  free_memory(root->left);
+  free_memory(root->right);
   free(root);
 }
 
 /**
- * Uruchamia program
+ * Runs the program
  */
 int main(int argc, char *argv[]) {
   if (argc < 2)
     return 0;
   char arg = argv[1][0];
   if (arg == 'c') {
-    drzewo *tree_korzen = czytaj_drzewo();
-    drzewo *dag_korzen = kompresja(tree_korzen);
-    drukuj_dag(dag_korzen);
-    zwolnij_pamiec(tree_korzen);
-    zwolnij_pamiec(dag_korzen);
-    free(tablica);
+    tree *tree_root = read_tree();
+    tree *dag_root = compression(tree_root);
+    print_dag(dag_root);
+    free_memory(tree_root);
+    free_memory(dag_root);
+    free(array);
   } else if (arg == 'd') {
-    drzewo *dag_korzen = czytaj_dag();
-    drzewo *tree_korzen = dekompresja(dag_korzen, dag_korzen);
-    drukuj_drzewo(tree_korzen);
-    zwolnij_pamiec(dag_korzen);
-    zwolnij_pamiec(tree_korzen);
-    free(tablica);
+    tree *dag_root = read_dag();
+    tree *tree_root = decompression(dag_root, dag_root);
+    print_tree(tree_root);
+    free_memory(dag_root);
+    free_memory(tree_root);
+    free(array);
   }
   return 0;
 }
